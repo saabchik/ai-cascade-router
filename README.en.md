@@ -392,7 +392,7 @@ metrics:
 session:
   enabled: true
   ttl_minutes: 30       # Session lifetime
-  max_context_tokens: 4096  # Max history tokens (old messages are trimmed)
+  max_context_tokens: 8192  # 8K — optimal for code. For analysis lower to 4K, for complex projects raise to 16K
 ```
 
 ---
@@ -591,9 +591,8 @@ Just want to try the router without a local model?
 - [x] v0.5: Session support — multi-turn dialogs (session_id + TTL + trimming)
 - [x] v0.6: CLI REPL client — interactive chat without curl
 - [x] v0.7: OpenAI-compatible endpoint (/v1/chat/completions) — integrate with VS Code, Cursor, Continue
-- [x] v0.7: OpenAI-compatible endpoint (/v1/chat/completions) — integrate with VS Code, Cursor, Continue
-- [ ] v0.7: UI Dashboard (metrics, savings visualization)
-- [ ] v0.8: In-agent mode — agent calls router at each loop step
+- [ ] v0.8: UI Dashboard (metrics, savings visualization)
+- [ ] v0.9: In-agent mode — agent calls router at each loop step
 - [ ] v0.9: Ensemble refinement — local generates draft, cloud improves (quality ensemble)
 - [ ] v1.0: Docker compose + Prometheus metrics
 

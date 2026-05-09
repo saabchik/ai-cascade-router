@@ -67,4 +67,4 @@ metrics:
 session:
   enabled: true
   ttl_minutes: 30
-  max_context_tokens: 4096
+  max_context_tokens: 8192  # 8K — оптимально для кода. Для анализа/рефакторинга можно снизить до 4096

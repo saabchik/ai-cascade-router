@@ -10,7 +10,18 @@ import sys
 import requests
 
 API_URL = "http://localhost:8000/route"
+MAX_CTX = 8192
 session_id = str(uuid.uuid4())
+ctx_usage = 0  # local tracking of context usage
+
+def _est_tokens(text: str) -> int:
+    return len(text) // 4
+
+def _ctx_bar(used: int, total: int) -> str:
+    pct = min(used / total, 1.0)
+    filled = int(pct * 10)
+    bar = "▓" * filled + "░" * (10 - filled)
+    return f"[ctx: {bar} {used}K/{total}K]"
 
 print("=" * 60)
 print("  AI Cascade Router CLI")
@@ -27,6 +38,7 @@ for line in sys.stdin:
         break
     if line == "/new":
         session_id = str(uuid.uuid4())
+        ctx_usage = 0
         print("(session reset)\n")
         continue
 
@@ -37,12 +49,17 @@ for line in sys.stdin:
         }, timeout=120)
         data = resp.json()
 
+        # Update local context tracking
+        ctx_usage += _est_tokens(line) + _est_tokens(data.get("response", ""))
+        ctx_usage = min(ctx_usage, MAX_CTX)  # cap at max (server trims)
+
         print()
         print(data.get("response", "no response"))
         source = data.get("source", "?")
         saved = data.get("tokens_saved", 0)
         time_ms = data.get("response_time_ms", 0)
-        print(f"  [{source}, saved {saved} tok, {round(time_ms)}ms]")
+        ctx_info = _ctx_bar(ctx_usage, MAX_CTX)
+        print(f"  [{source}, saved {saved} tok, {round(time_ms)}ms]  {ctx_info}")
         print()
 
     except KeyboardInterrupt:

@@ -94,7 +94,7 @@ logger.info("Metrics logger initialized")
 # Session manager
 session_manager = SessionManager(
     ttl_minutes=router_engine.config.get("session", {}).get("ttl_minutes", 30),
-    max_context_tokens=router_engine.config.get("session", {}).get("max_context_tokens", 4096)
+    max_context_tokens=router_engine.config.get("session", {}).get("max_context_tokens", 8192)
 )
 logger.info("Session manager initialized")
 
