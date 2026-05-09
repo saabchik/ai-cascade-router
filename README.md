@@ -137,7 +137,7 @@ domain_thresholds:
 ### 4. Обработка в локальном режиме
 
 ```
-Запрос → LM Studio (Qwen 2.5 7B) → Ответ + Self-Assessment
+Запрос → LM Studio (ваша модель) → Ответ + Self-Assessment
 ```
 
 **Self-Assessment** — модель сама оценивает свой ответ:
@@ -271,7 +271,7 @@ pip install -r requirements.txt
 ### 2. Настроить LM Studio (опционально — для локального режима)
 
 1. Скачать [LM Studio](https://lmstudio.ai/)
-2. Скачать любую модель (рекомендуется Qwen 2.5 7B Instruct, Llama 3, Mistral)
+2. Скачать любую модель (рекомендуется Qwen, Mistral, Gemma и т.д)
 3. Запустить LM Studio и загрузить модель
 4. Убедиться что API доступен на http://localhost:1234/v1
 5. В `config.yaml` поле `model_name` можно оставить `"auto"` — роутер сам возьмёт загруженную модель
