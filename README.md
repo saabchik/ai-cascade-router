@@ -1,5 +1,7 @@
 # AI Cascade Router
 
+[![EN](https://img.shields.io/badge/lang-en-red.svg)](README.en.md) [![RU](https://img.shields.io/badge/lang-ru-blue.svg)](README.md)
+
 Умный прокси-маршрутизатор для LLM, который **экономит до 70% токенов** на простых запросах, направляя их в локальные модели, а сложные — в облако.
 
 > Реальная экономия зависит от сценария: чат-бот / перевод → 60-80%, смешанная нагрузка → 35-55%, анализ и рефакторинг → 5-15%.
@@ -311,7 +313,7 @@ python main.py
 
 Сервер запустится на http://localhost:8000
 
-### 5. CLI-клиент (интерактивный чат)
+### 6. CLI-клиент (интерактивный чат)
 
 ```bash
 python cli.py
@@ -335,7 +337,7 @@ python cli.py
   [local->cloud, saved 0 tok, 1450ms]
 ```
 
-### 6. Docker (опционально)
+### 7. Docker (опционально)
 
 ```bash
 docker build -t ai-cascade-router .
@@ -461,7 +463,6 @@ ai-cascade-router/
 ├── cli.py                  # Интерактивный REPL-клиент (чат без curl)
 ├── .gitignore             # Git ignore файлы
 ├── .env.example           # Шаблон .env
-├── LICENSE                # MIT лицензия
 ├── LICENSE                # MIT лицензия
 │
 ├── session/                # Сессии (многотурные диалоги)
