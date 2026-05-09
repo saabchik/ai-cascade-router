@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+loguru
+httpx
+pyyaml
+pytest
+pytest-asyncio
+sentence-transformers
