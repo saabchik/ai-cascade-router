@@ -461,6 +461,8 @@ ai-cascade-router/
 ├── cli.py                  # Интерактивный REPL-клиент (чат без curl)
 ├── .gitignore             # Git ignore файлы
 ├── .env.example           # Шаблон .env
+├── LICENSE                # MIT лицензия
+├── LICENSE                # MIT лицензия
 │
 ├── session/                # Сессии (многотурные диалоги)
 │   └── manager.py          # SessionManager — хранение истории, TTL, обрезка
@@ -547,4 +549,4 @@ py -m pytest tests/ -v
 
 ## Лицензия
 
-MIT
+[MIT](LICENSE)
