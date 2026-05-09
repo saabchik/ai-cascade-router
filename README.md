@@ -268,7 +268,7 @@ pip install -r requirements.txt
 
 > **Windows:** если `pip install` не сработал, попробуй `py -m pip install -r requirements.txt`
 
-### 2. Настроить LM Studio (опционально — для локального режима)
+### 2. Настроить LM Studio (необходимо для локального режима и экономии)
 
 1. Скачать [LM Studio](https://lmstudio.ai/)
 2. Скачать любую модель (рекомендуется Qwen, Mistral, Gemma и т.д)
