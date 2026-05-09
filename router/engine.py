@@ -193,7 +193,7 @@ class RouterEngine:
                 "subtasks": []
             }
         
-        # Process each subtask
+# Process each subtask
         subtasks_routes = []
         for subtask in decomposition.subtasks:
             # Determine route based on complexity
@@ -205,6 +205,33 @@ class RouterEngine:
                 "route": route,
                 "index": subtask.index
             })
+        
+        # If ALL subtasks route to cloud, consolidate into a single cloud call.
+        # Cascade with N cloud calls is more expensive than one direct cloud call.
+        all_cloud = all(st["route"] == "cloud" for st in subtasks_routes)
+        if all_cloud:
+            logger.info(f"All {len(subtasks_routes)} subtasks route to cloud, consolidating to single cloud call")
+            return {
+                "mode": "single",
+                "decision": RouteResponse(
+                    decision=RouteDecision.CLOUD,
+                    reason="All subtasks require cloud, consolidated",
+                    confidence=1.0
+                ),
+                "classification": classification,
+                "subtasks": []
+            }
+        
+        return {
+                "mode": "single",
+                "decision": RouteResponse(
+                    decision=RouteDecision.CLOUD,
+                    reason="All subtasks require cloud, consolidated",
+                    confidence=1.0
+                ),
+                "classification": classification,
+                "subtasks": []
+            }
         
         return {
             "mode": "cascade",
