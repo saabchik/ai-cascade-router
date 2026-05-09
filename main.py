@@ -24,7 +24,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 # Initialize FastAPI
 app = FastAPI(
     title="AI Cascade Router",
-    version="0.5.0",
+    version="0.6.0",
     description="Smart LLM proxy: saves up to 70% tokens by routing to local models"
 )
 
@@ -153,7 +153,7 @@ async def health_check():
         "status": status,
         "local_model": "available" if local_healthy else "unavailable",
         "cloud_model": "available" if cloud_healthy else "unavailable",
-        "version": "0.5.0"
+        "version": "0.6.0"
     }
 
 

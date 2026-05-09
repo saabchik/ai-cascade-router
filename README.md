@@ -311,6 +311,30 @@ python main.py
 
 Сервер запустится на http://localhost:8000
 
+### 5. CLI-клиент (интерактивный чат)
+
+```bash
+python cli.py
+```
+
+Просто печатай запросы — без кавычек, без curl, без JSON. Контекст диалога сохраняется автоматически.
+
+```
+============================================================
+  AI Cascade Router CLI
+  Type your query and press Enter.
+  /exit  — quit
+  /new   — reset session (start fresh)
+============================================================
+напиши функцию факториала на Python
+...
+  [local->cloud, saved 0 tok, 2300ms]
+
+добавь обработку ошибок
+...
+  [local->cloud, saved 0 tok, 1450ms]
+```
+
 ### 6. Docker (опционально)
 
 ```bash
@@ -464,6 +488,7 @@ ai-cascade-router/
 ├── session/                # Сессии (многотурные диалоги)
 │   └── manager.py          # SessionManager — хранение истории, TTL, обрезка
 │
+├── cli.py                  # Интерактивный REPL-клиент (чат без curl)
 ├── test_local_model.py     # Диагностика LM Studio (быстрый тест)
 └── tests/                  # 21 тест
     ├── test_cascade.py     # 14 тестов (ML + rule-based + cascade)
@@ -535,9 +560,10 @@ py -m pytest tests/ -v
 - [x] v0.3: ML-классификатор (sentence-transformers), universal language detection
 - [x] v0.4: Рефакторинг — единый _call_cloud(), синглтон ML-модели, авто-расчёт метрик
 - [x] v0.5: Session support — многотурные диалоги с сохранением контекста (session_id + TTL + обрезка)
-- [ ] v0.6: UI Dashboard (метрики, визуализация экономии)
-- [ ] v0.7: In-agent mode — агент сам вызывает роутер на каждом шаге loop-а
-- [ ] v0.8: Ensemble refinement — local генерирует черновик, cloud улучшает (ансамбль для качества)
+- [x] v0.6: CLI REPL-клиент — интерактивный чат без curl
+- [ ] v0.7: UI Dashboard (метрики, визуализация экономии)
+- [ ] v0.8: In-agent mode — агент сам вызывает роутер на каждом шаге loop-а
+- [ ] v0.9: Ensemble refinement — local генерирует черновик, cloud улучшает (ансамбль для качества)
 - [ ] v1.0: Docker compose + Prometheus метрики
 
 ---
