@@ -84,6 +84,7 @@
 | **404 Fallback** | Если облачная модель недоступна — автоматически пробует следующую |
 | **Universal Language** | Работает с любым языком (русский, английский, китайский...) — ответ на языке запроса |
 | **Smart Token Savings** | Математический подсчёт экономии: `(1 - cloud_used/baseline) × 100%` |
+| **OpenAI-совместимый API** | Endpoint `/v1/chat/completions` — подключается к VS Code, Cursor, Continue.dev, Cline без плагинов |
 
 ---
 

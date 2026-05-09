@@ -84,6 +84,7 @@ Most LLM queries (60-80%) are simple: short questions, basic code, greetings, tr
 | **404 Fallback** | If a cloud model is unavailable, automatically tries the next one |
 | **Universal Language** | Works with any language — response in the same language as the query |
 | **Smart Token Savings** | Mathematical savings tracking: `(1 - cloud_used/baseline) × 100%` |
+| **OpenAI-Compatible API** | `/v1/chat/completions` endpoint — plug into VS Code, Cursor, Continue.dev, Cline with zero plugins |
 
 ---
 
