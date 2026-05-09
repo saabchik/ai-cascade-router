@@ -595,8 +595,8 @@ Just want to try the router without a local model?
 - [ ] v0.8: UI Dashboard (metrics, savings visualization)
 - [ ] v0.9: Adaptive routing — router analyzes local model speed and confidence, adjusts thresholds dynamically
 - [ ] v0.10: In-agent mode — agent calls router at each loop step
-- [ ] v0.10: Ensemble refinement — local generates draft, cloud improves (quality ensemble)
-- [ ] v1.0: Docker compose + Prometheus metrics
+- [ ] v0.11: Ensemble refinement — local generates draft, cloud improves (quality ensemble)
+- [ ] v1.0: Docker compose for production deployment
 
 ---
 
