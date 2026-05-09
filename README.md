@@ -252,7 +252,7 @@ curl http://localhost:8000/metrics
 |--------|----------|-------------|
 | **RouteLLM** | до 85% | ML классификатор (DistilBERT), обучение на Arena данных, stateless |
 | **LiteLLM** | — | AI Gateway для 100+ провайдеров, без встроенного роутинга, stateless |
-| **Наш проект** | до 70% | LM Studio + gpt-4o-mini + ML-классификатор + semantic cache + сессии + мультиязычность |
+| **Наш проект** | до 70% | LM Studio + cloud model + ML-классификатор + semantic cache + сессии + мультиязычность |
 
 ---
 
