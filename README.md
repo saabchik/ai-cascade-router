@@ -276,7 +276,23 @@ pip install -r requirements.txt
 4. Убедиться что API доступен на http://localhost:1234/v1
 5. В `config.yaml` поле `model_name` можно оставить `"auto"` — роутер сам возьмёт загруженную модель
 
-### 3. Настроить .env
+### 3. Выбрать облачную модель (опционально)
+
+По умолчанию стоит `openai/gpt-4o-mini` ($0.15/1M токенов) — дешёвая и быстрая. Хочешь другую — открой `config.yaml` и измени `model_name` в секции `cloud_model`.
+
+**Где взять имя модели:**
+1. Зайди на https://openrouter.ai/models
+2. Выбери модель (например Claude Sonnet, Gemini Pro, DeepSeek)
+3. Скопируй её **slug** — это строка из адресной строки браузера, например:
+   - `https://openrouter.ai/anthropic/claude-sonnet-4` → `anthropic/claude-sonnet-4`
+   - `https://openrouter.ai/google/gemini-2.5-pro` → `google/gemini-2.5-pro`
+4. Впиши этот slug в `config.yaml`:
+   ```yaml
+   cloud_model:
+     model_name: "anthropic/claude-sonnet-4"
+   ```
+
+### 4. Настроить .env
 
 ```bash
 cp .env.example .env
@@ -287,7 +303,7 @@ cp .env.example .env
 OPENROUTER_API_KEY=ваш_ключ_openrouter
 ```
 
-### 4. Запуск
+### 5. Запуск
 
 ```bash
 python main.py
@@ -295,7 +311,7 @@ python main.py
 
 Сервер запустится на http://localhost:8000
 
-### 5. Docker (опционально)
+### 6. Docker (опционально)
 
 ```bash
 docker build -t ai-cascade-router .
@@ -317,13 +333,18 @@ local_model:
 
 ### Облачная модель (OpenRouter)
 
+Меняй `model_name` на любой slug с https://openrouter.ai/models
+
 ```yaml
 cloud_model:
   provider: "openrouter"
-  model_name: "openai/gpt-4o-mini"  # Дешевая модель ($0.15/1M)
+  model_name: "openai/gpt-4o-mini"  # openai/gpt-4o-mini, anthropic/claude-sonnet-4, google/gemini-2.5-pro, deepseek/deepseek-chat...
   base_url: "https://openrouter.ai/api/v1"
   # api_key loaded from OPENROUTER_API_KEY env var
 ```
+
+> **Как узнать slug модели:** зайди на OpenRouter → выбери модель → скопируй её идентификатор из URL.  
+> Пример: URL `https://openrouter.ai/anthropic/claude-sonnet-4` → slug `anthropic/claude-sonnet-4`.
 
 ### Семантический кэш
 
