@@ -573,10 +573,9 @@ py -m pytest tests/ -v
 - [x] v0.5: Session support — многотурные диалоги с сохранением контекста (session_id + TTL + обрезка)
 - [x] v0.6: CLI REPL-клиент — интерактивный чат без curl
 - [x] v0.7: OpenAI-совместимый endpoint (/v1/chat/completions) — интеграция с VS Code, Cursor, Continue
-- [x] v0.7: OpenAI-совместимый endpoint (/v1/chat/completions) — интеграция с VS Code, Cursor, Continue
-- [ ] v0.7: UI Dashboard (метрики, визуализация экономии)
-- [ ] v0.8: In-agent mode — агент сам вызывает роутер на каждом шаге loop-а
-- [ ] v0.9: Ensemble refinement — local генерирует черновик, cloud улучшает (ансамбль для качества)
+- [ ] v0.8: UI Dashboard (метрики, визуализация экономии)
+- [ ] v0.9: In-agent mode — агент сам вызывает роутер на каждом шаге loop-а
+- [ ] v0.10: Ensemble refinement — local генерирует черновик, cloud улучшает (ансамбль для качества)
 - [ ] v1.0: Docker compose + Prometheus метрики
 
 ---
