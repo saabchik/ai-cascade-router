@@ -24,7 +24,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 # Initialize FastAPI
 app = FastAPI(
     title="AI Cascade Router",
-    version="0.6.0",
+    version="0.7.0",
     description="Smart LLM proxy: saves up to 70% tokens by routing to local models"
 )
 
@@ -144,6 +144,96 @@ class RouteResponse(BaseModel):
     warning: Optional[str] = None
 
 
+# OpenAI-compatible request format (for VS Code, Cursor, Continue, Cline, etc.)
+class OpenAIMessage(BaseModel):
+    role: str
+    content: str
+
+class OpenAIRequest(BaseModel):
+    model: str = "cascade-router"
+    messages: list[OpenAIMessage]
+    stream: bool = False
+    temperature: float = 0.7
+    max_tokens: int = 2000
+
+@app.post("/v1/chat/completions")
+async def openai_chat_completions(request: OpenAIRequest):
+    """OpenAI-compatible endpoint for integration with VS Code/Cursor/Continue/Cline."""
+    import time
+    start = time.time()
+
+    user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), None)
+    if not user_msg:
+        raise HTTPException(status_code=400, detail="No user message found")
+
+    # Detect language
+    original_lang_hint = get_language_hint(user_msg)
+
+    # Build full messages list for downstream models
+    full_messages = [{"role": m.role, "content": m.content} for m in request.messages]
+
+    # Classify and route
+    route_result = router_engine.evaluate_request(user_msg, None)
+    threshold = router_engine.get_threshold_for_query(user_msg)
+
+    # Try local, fallback to cloud
+    response_text = ""
+    source = "unknown"
+
+    if route_result.decision in (RouteDecision.LOCAL, RouteDecision.HYBRID) and local_engine:
+        local_ok = False
+        try:
+            result = await local_engine.generate(
+                user_msg,
+                system_prompt=original_lang_hint if original_lang_hint else None,
+                messages=full_messages
+            )
+            if result.confidence >= threshold:
+                response_text = result.text
+                source = "local"
+                local_ok = True
+        except Exception as e:
+            logger.warning(f"OpenAI local failed: {e}, falling back to cloud")
+
+        if not local_ok:
+            cloud_resp = await cloud_client.generate(
+                user_msg,
+                system_prompt=original_lang_hint if original_lang_hint else None,
+                messages=full_messages
+            )
+            response_text = cloud_resp["content"]
+            source = "local->cloud" if route_result.decision == RouteDecision.LOCAL else "hybrid"
+    else:
+        cloud_resp = await cloud_client.generate(
+            user_msg,
+            system_prompt=original_lang_hint if original_lang_hint else None,
+            messages=full_messages
+        )
+        response_text = cloud_resp["content"]
+        source = "cloud"
+
+    return {
+        "id": f"chatcmpl-{int(time.time())}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": request.model,
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": response_text},
+            "finish_reason": "stop"
+        }],
+        "usage": {
+            "prompt_tokens": len(user_msg) // 4,
+            "completion_tokens": len(response_text) // 4,
+            "total_tokens": (len(user_msg) + len(response_text)) // 4
+        },
+        "cascade_meta": {
+            "source": source,
+            "response_time_ms": round((time.time() - start) * 1000, 2)
+        }
+    }
+
+
 @app.get("/health")
 async def health_check():
     local_healthy = await local_engine.health_check() if local_engine else False
@@ -153,7 +243,7 @@ async def health_check():
         "status": status,
         "local_model": "available" if local_healthy else "unavailable",
         "cloud_model": "available" if cloud_healthy else "unavailable",
-        "version": "0.6.0"
+        "version": "0.7.0"
     }
 
 

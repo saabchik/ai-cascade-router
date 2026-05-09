@@ -449,6 +449,36 @@ curl http://localhost:8000/metrics
 
 Проверка здоровья.
 
+### POST /v1/chat/completions (OpenAI-совместимый)
+
+Для интеграции с VS Code, Cursor, Continue.dev, Cline и любыми инструментами, поддерживающими OpenAI API.
+
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "router", "messages": [{"role": "user", "content": "Hello!"}]}'
+```
+
+**Настройка в инструментах:**
+
+- **Continue.dev:** в `config.json` → `"models": [{"title": "Cascade Router", "provider": "openai", "apiBase": "http://localhost:8000/v1"}]`
+- **Cline:** Settings → API Provider → OpenAI Compatible → API Base URL: `http://localhost:8000/v1`
+- **Cursor:** Settings → Models → Add custom model → `http://localhost:8000/v1`
+
+**Response:**
+```json
+{
+  "id": "chatcmpl-1746789012",
+  "object": "chat.completion",
+  "model": "router",
+  "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello!"}, "finish_reason": "stop"}],
+  "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
+  "cascade_meta": {"source": "local", "response_time_ms": 1234.56}
+}
+```
+
+Поле `cascade_meta` содержит служебную информацию: `source` (откуда ответ), `response_time_ms`.
+
 ---
 
 ## Структура проекта
@@ -541,6 +571,8 @@ py -m pytest tests/ -v
 - [x] v0.4: Рефакторинг — единый _call_cloud(), синглтон ML-модели, авто-расчёт метрик
 - [x] v0.5: Session support — многотурные диалоги с сохранением контекста (session_id + TTL + обрезка)
 - [x] v0.6: CLI REPL-клиент — интерактивный чат без curl
+- [x] v0.7: OpenAI-совместимый endpoint (/v1/chat/completions) — интеграция с VS Code, Cursor, Continue
+- [x] v0.7: OpenAI-совместимый endpoint (/v1/chat/completions) — интеграция с VS Code, Cursor, Continue
 - [ ] v0.7: UI Dashboard (метрики, визуализация экономии)
 - [ ] v0.8: In-agent mode — агент сам вызывает роутер на каждом шаге loop-а
 - [ ] v0.9: Ensemble refinement — local генерирует черновик, cloud улучшает (ансамбль для качества)

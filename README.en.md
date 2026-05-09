@@ -446,6 +446,36 @@ curl http://localhost:8000/metrics
 
 Health check.
 
+### POST /v1/chat/completions (OpenAI-compatible)
+
+For integration with VS Code, Cursor, Continue.dev, Cline and any OpenAI-compatible tools.
+
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "router", "messages": [{"role": "user", "content": "Hello!"}]}'
+```
+
+**Setup in tools:**
+
+- **Continue.dev:** `config.json` → `"models": [{"title": "Cascade Router", "provider": "openai", "apiBase": "http://localhost:8000/v1"}]`
+- **Cline:** Settings → API Provider → OpenAI Compatible → API Base URL: `http://localhost:8000/v1`
+- **Cursor:** Settings → Models → Add custom model → `http://localhost:8000/v1`
+
+**Response:**
+```json
+{
+  "id": "chatcmpl-1746789012",
+  "object": "chat.completion",
+  "model": "router",
+  "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello!"}, "finish_reason": "stop"}],
+  "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
+  "cascade_meta": {"source": "local", "response_time_ms": 1234.56}
+}
+```
+
+The `cascade_meta` field contains routing info: `source` (where the answer came from), `response_time_ms`.
+
 ---
 
 ## Project Structure
@@ -560,6 +590,8 @@ Just want to try the router without a local model?
 - [x] v0.4: Refactoring — unified _call_cloud(), ML model singleton, auto-cost metrics
 - [x] v0.5: Session support — multi-turn dialogs (session_id + TTL + trimming)
 - [x] v0.6: CLI REPL client — interactive chat without curl
+- [x] v0.7: OpenAI-compatible endpoint (/v1/chat/completions) — integrate with VS Code, Cursor, Continue
+- [x] v0.7: OpenAI-compatible endpoint (/v1/chat/completions) — integrate with VS Code, Cursor, Continue
 - [ ] v0.7: UI Dashboard (metrics, savings visualization)
 - [ ] v0.8: In-agent mode — agent calls router at each loop step
 - [ ] v0.9: Ensemble refinement — local generates draft, cloud improves (quality ensemble)
