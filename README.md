@@ -489,9 +489,9 @@ py -m pytest tests/ -v
 Если хочешь просто попробовать роутер без локальной модели:
 
 1. Установи зависимости: `pip install -r requirements.txt`
-2. Впиши API-ключ OpenRouter в `.env`
-3. Запусти: `python main.py`
-4. Отправь запрос — все запросы уйдут в облако (режим `local` упадёт на health check, роутер сам переключится на cloud)
+2. Скопируй `.env.example` в `.env`: `cp .env.example .env` (или в Windows: `copy .env.example .env`)
+3. Открой `.env` и впиши свой `OPENROUTER_API_KEY`
+4. Запусти: `python main.py`
 
 ---
 
