@@ -53,3 +53,7 @@ Thumbs.db
 *.tmp
 *.bak
 *~
+
+# Internal docs (not for public)
+docs/superpowers/
+SCHEME.txt

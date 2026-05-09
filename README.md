@@ -458,32 +458,9 @@ ai-cascade-router/
 ├── README.md               # Этот файл
 ├── requirements.txt        # Зависимости
 ├── Dockerfile              # Docker конфигурация
+├── cli.py                  # Интерактивный REPL-клиент (чат без curl)
 ├── .gitignore             # Git ignore файлы
 ├── .env.example           # Шаблон .env
-│
-├── router/                 # Ядро маршрутизации
-│   ├── engine.py           # RouterEngine — логика роутинга
-│   ├── semantic.py         # SemanticClassifier — ML + rule-based классификация
-│   ├── decomposer.py       # TaskDecomposition — декомпозиция многоступенчатых
-│   └── protocol.py        # RouteDecision, RouteResponse
-│
-├── models/                 # Локальные модели
-│   └── local_engine.py     # LocalEngine — обертка над LM Studio
-│                           # + self-assessment + retry логика
-│
-├── cloud/                  # Облачные провайдеры
-│   └── client.py           # CloudClient — OpenRouter
-│                           # + 404 fallback + language detection
-│
-├── cache/                  # Кэширование
-│   └── manager.py          # SemanticCache с эмбеддингами
-│
-├── metrics/                # Метрики
-│   └── logger.py           # Подсчет экономии токенов (математический)
-│
-├── utils/                  # Утилиты
-│   ├── model_cache.py      # Shared embedding model (синглтон)
-│   └── prompt_optimizer.py # Оптимизация промптов для облака
 │
 ├── session/                # Сессии (многотурные диалоги)
 │   └── manager.py          # SessionManager — хранение истории, TTL, обрезка
