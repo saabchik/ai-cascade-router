@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Optional, Dict, Any
 import re
 import numpy as np
+from loguru import logger
 from utils.model_cache import get_embedding_model, is_embeddings_available
 
 class Complexity(Enum):
@@ -109,6 +110,9 @@ class SemanticClassifier:
             try:
                 ml_complexity, ml_confidence = self._classify_ml(query)
                 routing = self._determine_routing(ml_complexity, is_multi_step)
+                logger.info(f"[ML] classified: complexity={ml_complexity.value}, "
+                           f"confidence={ml_confidence:.2f}, routing={routing}, "
+                           f"multi_step={is_multi_step}")
                 return ClassificationResult(
                     is_multi_step=is_multi_step,
                     complexity=ml_complexity,
@@ -123,6 +127,10 @@ class SemanticClassifier:
         complexity = self._determine_complexity(query_lower)
         routing = self._determine_routing(complexity, is_multi_step)
         confidence = self._calculate_confidence(query, complexity, is_multi_step)
+
+        logger.info(f"[RULES] classified: complexity={complexity.value}, "
+                    f"confidence={confidence:.2f}, routing={routing}, "
+                    f"multi_step={is_multi_step}")
 
         return ClassificationResult(
             is_multi_step=is_multi_step,
