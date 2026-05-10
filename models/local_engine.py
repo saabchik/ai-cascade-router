@@ -125,7 +125,7 @@ class LocalEngine:
                     logger.error(f"Invalid response structure - no 'choices': {data}")
                     raise ValueError("Invalid response: missing 'choices' field")
 
-text = data["choices"][0]["message"]["content"]
+                text = data["choices"][0]["message"]["content"]
                 tokens_used = data.get("usage", {}).get("total_tokens", 0)
 
                 logger.debug(f"Generated {tokens_used} tokens, response length: {len(text)}")
