@@ -22,9 +22,9 @@ Most LLM queries (60-80%) are simple: short questions, basic code, greetings, tr
 
 1. **Classifies** the query by domain (code, chat, analysis...) and complexity
 2. **Checks cache** — similar queries may already have an answer ready
-3. **Makes a decision** — LOCAL (free), CLOUD (paid), or HYBRID (local extraction + cloud)
+3. **Makes a decision** — LOCAL (free), CLOUD (paid), or HYBRID (local generation → heuristic → confident → LOCAL, else CLOUD)
 4. For multi-step queries — **decomposes** into subtasks (CASCADE), each routed separately
-5. **Self-assessment** — the model rates its own confidence; if low — fallback to cloud
+5. **Self-assessment** — analyzes the response for confidence signals (length, structure, uncertainty phrases) without a second LLM call
 6. **Saves session** — with `session_id`, dialog history is passed as context to the model
 7. **Tracks savings** — every request logs tokens saved
 
@@ -78,14 +78,14 @@ Most LLM queries (60-80%) are simple: short questions, basic code, greetings, tr
 | **ML Classifier** | Sentence-Transformers (all-MiniLM-L6-v2) + reference queries, auto-fallback to rules |
 | **Session Support** | Multi-turn dialogs — history saved by `session_id`, auto-context trimming |
 | **Semantic Cache** | Embedding-based cache — finds similar queries even with different wording |
-| **Self-Assessment** | The model rates its own confidence in its response |
+| **Self-Assessment** | Heuristic confidence estimation (length, structure, uncertainty phrases). No second LLM call — saves time and tokens |
 | **Domain Thresholds** | Different thresholds for code, analysis, chat — code stays local more often, analysis goes to cloud |
-| **Cascade Decomposition** | Complex multi-step queries broken into subtasks |
+| **Cascade Decomposition** | Complex multi-step queries broken into subtasks. If all subtasks route the same way — consolidated into a single call |
 | **Universal Language** | Works with any language — response in the same language as the query |
 | **Smart Token Savings** | Mathematical savings tracking: `(1 - cloud_used/baseline) × 100%` |
 | **OpenAI-Compatible API** | `/v1/chat/completions` endpoint — plug into VS Code, Cursor, Continue.dev, Cline with zero plugins |
 
-> **⚠️ Important:** Cascade mode (multi-step query decomposition) and Hybrid mode require a local model with a generation speed of **at least 25 tokens/s**. Slower models may cause timeouts (default timeout is 120s). Therefore, for work, choose a more or less fast LLM.
+> **⚠️ Important:** Cascade mode and Hybrid mode require a local model with a generation speed of **at least 25 tokens/s**. Slower models may cause timeouts (default timeout is 300s).
 
 
 ---
@@ -110,7 +110,8 @@ The system determines:
 - Complex (multi-step)
 
 **Multi-step?** (needs decomposition):
-- Queries with "and", "then", "also" → decomposed into subtasks
+- Queries with "and", "then", "first", "after that", "next" → decomposed into subtasks
+- Single prepositions ("with") don't trigger decomposition
 
 ### 2. ML Classifier (v0.3)
 
@@ -142,26 +143,25 @@ Logic:
 ### 4. Local Mode
 
 ```
-Query → LM Studio (your model) → Response + Self-Assessment
+Query → LM Studio (your model) → Response + Heuristic Confidence
 ```
 
-**Self-Assessment** — the model rates its own response:
-```json
-{
-  "confidence": 0.85,
-  "flags": ["unknown_term", "insufficient_context"]
-}
-```
+**Heuristic Confidence** — analyzes the response text directly (no second LLM call):
+- Signals: response length, code presence, structure (headings, lists), uncertainty phrases ("don't know", "not sure")
+- If confidence ≥ domain threshold → **LOCAL**
+- If confidence < threshold → fallback to **CLOUD**
 
-If critical flags are present → increased chance of cloud delegation.
+Zero additional tokens spent on self-assessment.
 
 ### 5. Hybrid Mode
 
 ```
-Query → Local model (context extraction) → Cloud (final answer)
+Query → Local model (full generation) → Heuristic Confidence
+           ↓ confident                                  ↓ low
+        LOCAL (0 cloud tokens)                   CLOUD (fallback)
 ```
 
-The local model extracts key information → the cloud model uses this context for a more accurate response.
+Hybrid no longer does "local extraction + mandatory cloud". It now generates the full answer locally, and only falls back to cloud if heuristic confidence is low. This lets hybrid mode save tokens too.
 
 ### 6. Cascade Mode
 
@@ -171,11 +171,11 @@ For multi-step queries:
           ↓
 Decomposition:
   1. "Analyze data" → LOCAL
-  2. "Create report" → CLOUD
+  2. "Create report" → HYBRID
   3. "Add charts" → HYBRID
 ```
 
-Each subtask is routed independently.
+Each subtask is routed independently. All types (local/hybrid/cloud) go through heuristic and get a chance to stay local. If all subtasks need cloud — consolidated into a single call.
 
 ### 7. Semantic Cache
 
@@ -354,7 +354,15 @@ docker run -p 8000:8000 --env-file .env ai-cascade-router
 local_model:
   base_url: "http://localhost:1234/v1"
   model_name: "auto"  # "auto" = uses whatever is loaded in LM Studio
-  timeout_seconds: 120
+  timeout_seconds: 300  # increased for slower models
+```
+
+### Quota and timeouts
+
+```yaml
+max_tokens: null          # null = model decides
+local_model:
+  timeout_seconds: 300
 ```
 
 ### Cloud model (OpenRouter)
@@ -423,6 +431,7 @@ Invoke-RestMethod -Uri "http://localhost:8000/route" -Method Post -ContentType "
 - `query` (required) — request text
 - `task_type` (opt.) — `chat`, `code`, `simple`, `question`, `analysis`, `creative`, `technical`
 - `session_id` (opt.) — session identifier for multi-turn dialog
+- `max_tokens` (opt.) — max tokens in response (`null` = model decides)
 - `context` (opt.) — additional context (dict)
 
 **Response:**
@@ -477,7 +486,10 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 }
 ```
 
-The `cascade_meta` field contains routing info: `source` (where the answer came from), `response_time_ms`.
+**Features:**
+- Supports `stream: True` — SSE streaming, first token in <500ms
+- Supports `max_tokens` from client request (not hardcoded)
+- The `cascade_meta` field contains routing info: `source`, `response_time_ms`.
 
 ---
 
@@ -508,7 +520,7 @@ ai-cascade-router/
 │   └── local_engine.py     # LocalEngine — LM Studio wrapper + self-assessment + retry
 │
 ├── cloud/                  # Cloud providers
-│   └── client.py           # CloudClient — OpenRouter + 404 fallback + language detection
+│   └── client.py           # CloudClient — OpenRouter wrapper + language detection
 │
 ├── cache/                  # Caching
 │   └── manager.py          # SemanticCache with embeddings
