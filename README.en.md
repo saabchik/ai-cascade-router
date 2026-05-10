@@ -86,6 +86,8 @@ Most LLM queries (60-80%) are simple: short questions, basic code, greetings, tr
 | **Smart Token Savings** | Mathematical savings tracking: `(1 - cloud_used/baseline) × 100%` |
 | **OpenAI-Compatible API** | `/v1/chat/completions` endpoint — plug into VS Code, Cursor, Continue.dev, Cline with zero plugins |
 
+> **⚠️ Important:** Cascade mode (multi-step query decomposition) and Hybrid mode require a local model with a generation speed of **at least 25 tokens/s**. Slower models may cause timeouts (default timeout is 120s). Recommended models: Qwen 2.5 7B, Mistral 7B, Llama 3 8B — these deliver 30-60 tok/s even on CPU with quantization.
+
 ---
 
 ## How It Works (Detailed)
