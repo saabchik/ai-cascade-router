@@ -410,28 +410,28 @@ async def route_request(request: RouteRequest):
                 result = None
 
             else:  # HYBRID
-                if not local_engine or not cloud_client:
-                    raise HTTPException(status_code=503, detail="Model unavailable")
+                if not local_engine:
+                    raise HTTPException(status_code=503, detail="Local model unavailable")
                 try:
-                    preproc_result = await local_engine.generate(
-                        f"Extract key context from: {request.query}",
-                        system_prompt="Extract key context concisely."
+                    result = await local_engine.generate(
+                        request.query,
+                        system_prompt="Provide a complete and accurate response."
                     )
-                    cloud_prompt = f"Context: {preproc_result.text}\n\nRequest: {request.query}"
-                    cloud_result = await cloud_client.generate(
-                        cloud_prompt,
-                        system_prompt=original_lang_hint if original_lang_hint else None
-                    )
-                    response_text = cloud_result["content"]
-                    source = "hybrid"
-                    cloud_used = cloud_result.get("usage", {}).get("total_tokens", 0)
-                    actual_cloud_tokens += cloud_used
-                    if cloud_used > 0:
-                        update_cloud_output_avg(cloud_used)
-                    result = None
+                    if result.confidence >= threshold:
+                        response_text = result.text
+                        source = "local"
+                    else:
+                        logger.warning(f"Hybrid local confidence {result.confidence} < threshold {threshold}, falling back to cloud")
+                        response_text, cloud_used = await _call_cloud(request.query)
+                        source = "hybrid"
+                        actual_cloud_tokens += cloud_used
+                        result = None
                 except Exception as e:
-                    logger.error(f"Hybrid routing error: {e}")
-                    raise HTTPException(status_code=500, detail=str(e))
+                    logger.warning(f"Hybrid local failed: {e}, falling back to cloud")
+                    response_text, cloud_used = await _call_cloud(request.query)
+                    source = "hybrid"
+                    actual_cloud_tokens += cloud_used
+                    result = None
 
         # CASCADE MODE
         elif cascade_result is not None:
