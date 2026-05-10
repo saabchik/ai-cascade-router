@@ -5,6 +5,67 @@ import asyncio
 from typing import Optional, Dict, Any, AsyncGenerator
 from loguru import logger
 
+UNSURE_PATTERNS = [
+    (r'\b(?:I\s+)?don\'t\s+know\b', 0.35),
+    (r'\bне знаю\b', 0.35),
+    (r'\bcannot\s+provide\b|\bне могу предоставит', 0.30),
+    (r'\bno\s+access\b|\bнет доступа\b', 0.30),
+    (r'\bnot\s+sure\b|\bне уверен\b', 0.20),
+    (r'\bnot\s+confiden', 0.20),
+    (r'\bplease\s+consult\b|\bлучше обратиться\b', 0.25),
+    (r'\byou\s+should\s+ask\b', 0.25),
+    (r'\bsorry,?\s+(?:I\s+)?(?:can\'?t|cannot|don\'?t)\b', 0.20),
+    (r'\bизвини,?\s+(?:я\s+)?(?:не\s+могу|не\s+знаю)\b', 0.20),
+]
+
+
+def estimate_confidence(text: str) -> float:
+    """Heuristic confidence estimation without a second LLM call.
+    
+    Base confidence: 0.70. Shifts up/down based on signals in the response text.
+    Returns value between 0.10 and 0.95.
+    """
+    score = 0.70
+    text_lower = text.lower()
+
+    # Negative: uncertainty phrases (only strongest match applies)
+    max_penalty = 0
+    for pattern, weight in UNSURE_PATTERNS:
+        if re.search(pattern, text_lower):
+            max_penalty = max(max_penalty, weight)
+    score -= max_penalty
+
+    # Negative: very short or empty
+    if len(text) < 20:
+        score -= 0.30
+    elif len(text) < 50:
+        score -= 0.10
+
+    # Negative: ends with "?" (model is asking back, not answering)
+    stripped = text.strip()
+    if stripped.endswith('?') and len(stripped) < 100:
+        score -= 0.15
+
+    # Positive: code presence
+    if '```' in text:
+        score += 0.15
+    elif any(kw in text_lower for kw in ['def ', 'class ', 'import ', 'function ']):
+        score += 0.10
+
+    # Positive: substantive answer length
+    if len(text) > 1000:
+        score += 0.10
+    elif len(text) > 400:
+        score += 0.05
+
+    # Positive: structured (bullet or numbered lists)
+    if any(l.strip().startswith('- ') for l in text.split('\n')):
+        score += 0.05
+    elif any(re.match(r'\d+\.\s', l.strip()) for l in text.split('\n')):
+        score += 0.05
+
+    return max(0.10, min(0.95, score))
+
 class GenerationResult:
     def __init__(self, text: str, confidence: float, tokens_used: int = 0, uncertainty_flags: list = None):
         self.text = text
@@ -64,26 +125,17 @@ class LocalEngine:
                     logger.error(f"Invalid response structure - no 'choices': {data}")
                     raise ValueError("Invalid response: missing 'choices' field")
 
-                text = data["choices"][0]["message"]["content"]
+text = data["choices"][0]["message"]["content"]
                 tokens_used = data.get("usage", {}).get("total_tokens", 0)
 
                 logger.debug(f"Generated {tokens_used} tokens, response length: {len(text)}")
 
-                # Get confidence and uncertainty flags via self-assessment (v0.2)
-                confidence, flags = await self.run_self_assessment(prompt, text)
-
-                # Override: detect "I don't know" phrases in response
-                uncertainty_phrases = [
-                    "к сожалению", "не знаю", "не имею доступа", "не могу предоставить",
-                    "нет доступа", "не располагаю", "не имею информации",
-                    "unfortunately", "don't know", "no access", "cannot provide",
-                    "не могу сказать", "не уверен", "требует уточнения"
-                ]
-                text_lower = text.lower()
-                if any(phrase in text_lower for phrase in uncertainty_phrases):
-                    logger.warning(f"Detected uncertainty phrase in response, lowering confidence to 0.3")
-                    confidence = 0.3
-                    flags.append("недостаточно_контекста")
+                # Heuristic confidence estimation (no second LLM call)
+                confidence = estimate_confidence(text)
+                flags = []
+                if confidence < 0.50:
+                    flags.append("низкая_уверенность")
+                    logger.warning(f"Low confidence ({confidence}), likely falling back to cloud")
 
                 return GenerationResult(text=text, confidence=confidence, tokens_used=tokens_used, uncertainty_flags=flags)
 
@@ -112,56 +164,6 @@ class LocalEngine:
 
         # All retries failed - raise for fallback handling in main.py
         raise last_error or Exception("Local model failed after retries")
-
-    async def run_self_assessment(self, query: str, response: str) -> tuple[float, list]:
-        """Ask the model to assess its own confidence and return flags (v0.2)."""
-        assessment_prompt = f"""Query: {query}
-
-Response: {response}
-
-Assess your confidence and identify any issues. Respond in this exact JSON format:
-{{"confidence": 0.85, "flags": ["неизвестный_термин", "недостаточно_контекста"]}}
-
-Available flags: "неизвестный_термин", "недостаточно_контекста", "требует_фактчекинг", "двусмысленный_запрос", "может_быть_устаревшим"
-If no issues, use empty array for flags: "flags": []"""
-
-        try:
-            result = await self.client.post(
-                f"{self.base_url}/chat/completions",
-                json={
-                    "model": self.model,
-                    "messages": [{"role": "user", "content": assessment_prompt}],
-                    "temperature": 0.1,
-                    "max_tokens": 100
-                }
-            )
-            result.raise_for_status()
-            assessment_text = result.json()["choices"][0]["message"]["content"].strip()
-
-            # Parse JSON from response
-            import json as json_module
-            try:
-                # Try to extract JSON
-                import re
-                json_match = re.search(r'\{.*\}', assessment_text, re.DOTALL)
-                if json_match:
-                    data = json_module.loads(json_match.group())
-                    confidence = float(data.get("confidence", 0.5))
-                    flags = list(data.get("flags", []))
-                    return max(0.0, min(1.0, confidence)), flags
-            except:
-                pass
-
-            # Fallback: extract just number
-            num_match = re.search(r'(\d+\.?\d*)', assessment_text)
-            if num_match:
-                confidence = float(num_match.group(1))
-                return max(0.0, min(1.0, confidence)), []
-            return 0.5, []
-
-        except Exception as e:
-            logger.warning(f"Self-assessment failed: {e}, defaulting to 0.5 with no flags")
-            return 0.5, []
 
     async def health_check(self) -> bool:
         """Check if LM Studio is available."""
