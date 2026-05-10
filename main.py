@@ -3,10 +3,12 @@
 AI Cascade Router - Smart LLM proxy that saves 40-70% tokens.
 """
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import os
 import re
+import json
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -166,17 +168,20 @@ async def openai_chat_completions(request: OpenAIRequest):
     if not user_msg:
         raise HTTPException(status_code=400, detail="No user message found")
 
-    # Detect language
     original_lang_hint = get_language_hint(user_msg)
-
-    # Build full messages list for downstream models
     full_messages = [{"role": m.role, "content": m.content} for m in request.messages]
 
-    # Classify and route
+    if request.stream:
+        return await _openai_stream(user_msg, original_lang_hint, full_messages, request)
+    else:
+        return await _openai_nonstream(user_msg, original_lang_hint, full_messages, request, start)
+
+
+async def _openai_nonstream(user_msg: str, original_lang_hint: str, full_messages: list, request: OpenAIRequest, start: float):
+    """Non-streaming path for /v1/chat/completions."""
     route_result = router_engine.evaluate_request(user_msg, None)
     threshold = router_engine.get_threshold_for_query(user_msg)
 
-    # Try local, fallback to cloud
     response_text = ""
     source = "unknown"
 
@@ -232,6 +237,38 @@ async def openai_chat_completions(request: OpenAIRequest):
             "response_time_ms": round((time.time() - start) * 1000, 2)
         }
     }
+
+
+async def _openai_stream(user_msg: str, original_lang_hint: str, full_messages: list, request: OpenAIRequest):
+    """Streaming path for /v1/chat/completions."""
+    route_result = router_engine.evaluate_request(user_msg, None)
+    threshold = router_engine.get_threshold_for_query(user_msg)
+
+    use_local = route_result.decision in (RouteDecision.LOCAL, RouteDecision.HYBRID) and local_engine
+
+    async def event_stream():
+        try:
+            if use_local:
+                async for chunk in local_engine.generate_stream(
+                    user_msg,
+                    system_prompt=original_lang_hint if original_lang_hint else None,
+                    messages=full_messages
+                ):
+                    yield f"data: {json.dumps(chunk)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+        except Exception as e:
+            logger.warning(f"Local stream failed: {e}, falling back to cloud")
+
+        async for chunk in cloud_client.generate_stream(
+            user_msg,
+            system_prompt=original_lang_hint if original_lang_hint else None,
+            messages=full_messages
+        ):
+            yield f"data: {json.dumps(chunk)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.get("/health")

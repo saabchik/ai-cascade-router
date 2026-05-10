@@ -1,6 +1,7 @@
 import httpx
 import os
-from typing import Optional, Dict, Any
+import json
+from typing import Optional, Dict, Any, AsyncGenerator
 from loguru import logger
 from utils.prompt_optimizer import optimize_prompt_for_cloud, estimate_tokens
 
@@ -100,6 +101,42 @@ class CloudClient:
         except Exception as e:
             logger.warning(f"OpenRouter health check failed: {e}")
             return False
+
+    async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None, temperature: float = 0.7, max_tokens: int = 2000, messages: Optional[list] = None) -> AsyncGenerator[Dict[str, Any], None]:
+        """Generate response as SSE stream."""
+        if not self.api_key:
+            raise ValueError("OPENROUTER_API_KEY not configured")
+
+        if messages is not None:
+            chat_messages = list(messages)
+        else:
+            chat_messages = []
+            import re
+            lang_hint = "Please respond in the same language as the user's question." if re.search(r'[^\x00-\x7F]', prompt) else ""
+            if lang_hint:
+                chat_messages.append({"role": "system", "content": lang_hint})
+            if system_prompt:
+                chat_messages.append({"role": "system", "content": system_prompt})
+            chat_messages.append({"role": "user", "content": prompt})
+
+        async with self.client.stream(
+            "POST",
+            f"{self.base_url}/chat/completions",
+            json={
+                "model": self.model,
+                "messages": chat_messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "stream": True
+            }
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    data = line[6:]
+                    if data.strip() == "[DONE]":
+                        break
+                    yield json.loads(data)
 
     async def close(self):
         await self.client.aclose()

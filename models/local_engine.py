@@ -2,7 +2,7 @@ import httpx
 import json
 import re
 import asyncio
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, AsyncGenerator
 from loguru import logger
 
 class GenerationResult:
@@ -171,6 +171,35 @@ If no issues, use empty array for flags: "flags": []"""
         except Exception as e:
             logger.warning(f"Health check failed: {e}")
             return False
+
+    async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None, messages: Optional[list] = None) -> AsyncGenerator[Dict[str, Any], None]:
+        """Generate response as SSE stream (no self-assessment)."""
+        if messages is not None:
+            request_messages = messages
+        else:
+            request_messages = []
+            if system_prompt:
+                request_messages.append({"role": "system", "content": system_prompt})
+            request_messages.append({"role": "user", "content": prompt})
+
+        async with self.client.stream(
+            "POST",
+            f"{self.base_url}/chat/completions",
+            json={
+                "model": self.model,
+                "messages": request_messages,
+                "temperature": 0.7,
+                "max_tokens": 2000,
+                "stream": True
+            }
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    data = line[6:]
+                    if data.strip() == "[DONE]":
+                        break
+                    yield json.loads(data)
 
     async def close(self):
         """Close the httpx client."""
