@@ -488,33 +488,30 @@ async def route_request(request: RouteRequest):
                         logger.info(f"Subtask [{sub_route}]: cloud_used={cloud_used}, total={actual_cloud_tokens}")
 
                     elif sub_route == "hybrid":
-                        if not cloud_client:
-                            raise HTTPException(status_code=503, detail="Cloud client not configured")
-
-                        # Try local preprocessing first
-                        local_success = False
-                        combined = sub_action
-                        try:
-                            preproc = await local_engine.generate(
-                                sub_action,
-                                system_prompt="Extract key context from this request."
-                            )
-                            combined = f"Context: {preproc.text}\n\nRequest: {sub_action}"
-                            local_success = True
-                        except Exception as local_e:
-                            logger.warning(f"Hybrid local preprocessing failed: {local_e}, using direct cloud")
-
-                        content, cloud_used = await _call_cloud(combined)
-                        responses.append(content)
-                        if cloud_used == 0:
-                            content = content or ""
-                            cloud_used = len(content) // 4 + len(combined) // 4
-                            logger.warning(f"Hybrid cloud: no usage data, estimated {cloud_used} tokens")
-                        actual_cloud_tokens += cloud_used
-                        if local_success:
-                            logger.info(f"Subtask [{sub_route}]: cloud_used={cloud_used}, total={actual_cloud_tokens}")
+                        if not local_available:
+                            content, cloud_used = await _call_cloud(sub_action)
+                            responses.append(content)
+                            if cloud_used == 0:
+                                cloud_used = len(content) // 4 + len(sub_action) // 4
+                            actual_cloud_tokens += cloud_used
+                            logger.info(f"Subtask [hybrid→cloud]: no local, cloud_used={cloud_used}")
                         else:
-                            logger.info(f"Subtask [hybrid->cloud]: cloud_used={cloud_used}, total={actual_cloud_tokens}")
+                            lang_hint = original_lang_hint or get_language_hint(sub_action)
+                            sub_result = await local_engine.generate(
+                                sub_action,
+                                system_prompt=lang_hint if lang_hint else None
+                            )
+                            if sub_result.confidence >= threshold:
+                                responses.append(sub_result.text)
+                                logger.info(f"Subtask [hybrid]: local, confidence={sub_result.confidence}")
+                            else:
+                                logger.warning(f"Hybrid local confidence {sub_result.confidence} < threshold {threshold}, falling back to cloud")
+                                content, cloud_used = await _call_cloud(sub_action)
+                                responses.append(content)
+                                if cloud_used == 0:
+                                    cloud_used = len(content) // 4 + len(sub_action) // 4
+                                actual_cloud_tokens += cloud_used
+                                logger.info(f"Subtask [hybrid→cloud]: cloud_used={cloud_used}, total={actual_cloud_tokens}")
 
                 except Exception as e:
                     logger.error(f"Subtask error ({sub_route}): {e}")
