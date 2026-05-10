@@ -32,8 +32,8 @@ class SemanticClassifier:
     }
     
     MULTI_STEP_PATTERNS = [
-        " and ", " then ", " also ", " plus ", " with ", ", and ", ";",
-        " и ", " затем ", " также ", " плюс ", " а также ", " и потом ", ", и "
+        " and ", " and then ", " then ", " and also ", " first ", " after that ", " next ",
+        " и ", " затем ", " и потом ", " после этого ", " сначала ", " потом ", " далее ",
     ]
     
     TASK_TYPE_KEYWORDS = {

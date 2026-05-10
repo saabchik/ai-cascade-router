@@ -252,7 +252,7 @@ class RouterEngine:
         """Determine routing for a subtask based on complexity."""
         comp = decomposition_complexity.lower()
         if comp == "complex":
-            return "cloud"
+            return "hybrid"
         elif comp == "medium":
             return "hybrid"
         else:

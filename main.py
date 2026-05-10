@@ -305,13 +305,14 @@ async def route_request(request: RouteRequest):
         should_check_cache = False
 
     # Local helper: call cloud with Russian prompt prepend if needed
-    async def _call_cloud(query_text: str, russian_override: bool = False):
+    async def _call_cloud(query_text: str, russian_override: bool = False, include_session: bool = True):
         if not cloud_client:
             raise HTTPException(status_code=503, detail="Cloud client not configured")
         needs_russian = russian_override or is_russian
         cloud_prompt = query_text
         if needs_russian:
             cloud_prompt = "Ответьте обязательно на русском языке.\n\n" + query_text
+        msgs = session_messages if include_session else None
         cloud_result = await cloud_client.generate(
             cloud_prompt,
             system_prompt=original_lang_hint if original_lang_hint else None,
@@ -388,7 +389,7 @@ async def route_request(request: RouteRequest):
                     result = await local_engine.generate(
                         request.query,
                         system_prompt=original_lang_hint if original_lang_hint else None,
-                        messages=session_messages
+            messages=msgs
                     )
                     if result.confidence >= threshold:
                         response_text = result.text
@@ -468,7 +469,7 @@ async def route_request(request: RouteRequest):
                         # Check confidence - fallback to cloud if too low
                         if sub_result.confidence < threshold:
                             logger.warning(f"Local confidence {sub_result.confidence} < threshold {threshold}, falling back to cloud")
-                            content, cloud_used = await _call_cloud(sub_action)
+                            content, cloud_used = await _call_cloud(sub_action, include_session=False)
                             responses.append(content)
                             if cloud_used == 0:
                                 cloud_used = len(content) // 4 + len(sub_action) // 4
@@ -479,7 +480,7 @@ async def route_request(request: RouteRequest):
                             logger.info(f"Subtask [{sub_route}]: local, confidence={sub_result.confidence}")
 
                     elif sub_route == "cloud":
-                        content, cloud_used = await _call_cloud(sub_action)
+                        content, cloud_used = await _call_cloud(sub_action, include_session=False)
                         responses.append(content)
                         if cloud_used == 0:
                             cloud_used = len(content) // 4 + len(sub_action) // 4
@@ -489,7 +490,7 @@ async def route_request(request: RouteRequest):
 
                     elif sub_route == "hybrid":
                         if not local_available:
-                            content, cloud_used = await _call_cloud(sub_action)
+                            content, cloud_used = await _call_cloud(sub_action, include_session=False)
                             responses.append(content)
                             if cloud_used == 0:
                                 cloud_used = len(content) // 4 + len(sub_action) // 4
@@ -506,7 +507,7 @@ async def route_request(request: RouteRequest):
                                 logger.info(f"Subtask [hybrid]: local, confidence={sub_result.confidence}")
                             else:
                                 logger.warning(f"Hybrid local confidence {sub_result.confidence} < threshold {threshold}, falling back to cloud")
-                                content, cloud_used = await _call_cloud(sub_action)
+                                content, cloud_used = await _call_cloud(sub_action, include_session=False)
                                 responses.append(content)
                                 if cloud_used == 0:
                                     cloud_used = len(content) // 4 + len(sub_action) // 4
