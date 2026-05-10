@@ -2,7 +2,7 @@
 import yaml
 from typing import Optional, Dict, Any, List
 from router.protocol import RouteRequest, RouteDecision, RouteResponse
-from router.semantic import SemanticClassifier, ClassificationResult
+from router.semantic import SemanticClassifier, ClassificationResult, Complexity
 from router.decomposer import TaskDecomposer, DecompositionResult, Subtask
 from loguru import logger
 
@@ -96,6 +96,25 @@ class RouterEngine:
         domain = self._detect_domain(query)
         threshold = self.criteria.get_threshold_for_domain(domain)
         logger.info(f"Detected domain: {domain}, threshold: {threshold}")
+
+        # ML classification (before rule checks - saves time on complex queries)
+        classification = self.semantic_classifier.classify(query)
+        if classification.method == "ml" and classification.confidence >= 0.5:
+            if classification.complexity == Complexity.COMPLEX:
+                logger.info(f"ML classified as COMPLEX (conf={classification.confidence:.2f}), routing to cloud")
+                return RouteResponse(
+                    decision=RouteDecision.CLOUD,
+                    reason="ML classifier: complex query requires cloud",
+                    confidence=classification.confidence
+                )
+            elif classification.complexity == Complexity.MEDIUM:
+                logger.info(f"ML classified as MEDIUM (conf={classification.confidence:.2f}), routing to hybrid")
+                return RouteResponse(
+                    decision=RouteDecision.HYBRID,
+                    reason="ML classifier: medium complexity, use hybrid",
+                    confidence=classification.confidence
+                )
+            # SIMPLE: fall through to rule-based
 
         # Check task type routing
         if task_type and task_type in self.criteria.task_types:
