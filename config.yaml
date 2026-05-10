@@ -1,19 +1,19 @@
 # AI Cascade Router Configuration
 
 # Local model (LM Studio)
-# Universal config - works with ANY model you load in LM Studio
-# Supported: omnicoder, qwen, deepseek, llama, mistral, etc.
 local_model:
   base_url: "http://localhost:1234/v1"
-  model_name: "auto"  # "auto" = use whatever model is loaded in LM Studio
-  timeout_seconds: 120  # 2 min timeout - enough for most models, increase if needed
+  model_name: "auto"
+  timeout_seconds: 300
 
-# Cloud model (OpenRouter) - Using cheap paid model since free models not available
+# Cloud model (OpenRouter)
 cloud_model:
   provider: "openrouter"
   model_name: "openai/gpt-4o-mini"
   base_url: "https://openrouter.ai/api/v1"
-  # api_key loaded from OPENROUTER_API_KEY env var
+
+# Default max tokens (None = model decides)
+max_tokens: null
 
 # Routing configuration
 routing:

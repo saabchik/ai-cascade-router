@@ -81,7 +81,7 @@ class LocalEngine:
         self.max_retries = max_retries
         self.client = httpx.AsyncClient(timeout=httpx.Timeout(timeout))
 
-    async def generate(self, prompt: str, system_prompt: Optional[str] = None, messages: Optional[list] = None) -> GenerationResult:
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None, messages: Optional[list] = None, max_tokens: Optional[int] = None) -> GenerationResult:
         """Generate response using LM Studio API with retry (v0.2)."""
         if messages is not None:
             request_messages = messages
@@ -94,17 +94,19 @@ class LocalEngine:
         last_error = None
         for attempt in range(self.max_retries):
             try:
-                # Log request for debugging
                 logger.debug(f"Sending request to {self.base_url}/chat/completions (attempt {attempt + 1})")
+
+                body = {
+                    "model": self.model,
+                    "messages": request_messages,
+                    "temperature": 0.7,
+                }
+                if max_tokens is not None:
+                    body["max_tokens"] = max_tokens
 
                 response = await self.client.post(
                     f"{self.base_url}/chat/completions",
-                    json={
-                        "model": self.model,
-                        "messages": request_messages,
-                        "temperature": 0.7,
-                        "max_tokens": 2000
-                    }
+                    json=body
                 )
 
                 # Log response status
@@ -174,7 +176,7 @@ class LocalEngine:
             logger.warning(f"Health check failed: {e}")
             return False
 
-    async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None, messages: Optional[list] = None) -> AsyncGenerator[Dict[str, Any], None]:
+    async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None, messages: Optional[list] = None, max_tokens: Optional[int] = None) -> AsyncGenerator[Dict[str, Any], None]:
         """Generate response as SSE stream (no self-assessment)."""
         if messages is not None:
             request_messages = messages
@@ -184,16 +186,19 @@ class LocalEngine:
                 request_messages.append({"role": "system", "content": system_prompt})
             request_messages.append({"role": "user", "content": prompt})
 
+        body = {
+            "model": self.model,
+            "messages": request_messages,
+            "temperature": 0.7,
+            "stream": True
+        }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+
         async with self.client.stream(
             "POST",
             f"{self.base_url}/chat/completions",
-            json={
-                "model": self.model,
-                "messages": request_messages,
-                "temperature": 0.7,
-                "max_tokens": 2000,
-                "stream": True
-            }
+            json=body
         ) as response:
             response.raise_for_status()
             async for line in response.aiter_lines():

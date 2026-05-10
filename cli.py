@@ -55,7 +55,7 @@ for line in sys.stdin:
         resp = requests.post(API_URL, json={
             "query": line,
             "session_id": session_id
-        }, timeout=120)
+        }, timeout=300)
         data = resp.json()
 
         # Update local context tracking

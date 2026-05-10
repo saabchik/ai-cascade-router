@@ -36,7 +36,7 @@ class CloudClient:
         prompt: str,
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: int = 2000,
+        max_tokens: Optional[int] = None,
         optimize: bool = True,
         messages: Optional[list] = None
     ) -> Dict[str, Any]:
@@ -64,14 +64,17 @@ class CloudClient:
         logger.debug(f"Sending to cloud: model={self.model}, messages={str(chat_messages)[:200]}")
 
         try:
+            body = {
+                "model": self.model,
+                "messages": chat_messages,
+                "temperature": temperature,
+            }
+            if max_tokens is not None:
+                body["max_tokens"] = max_tokens
+
             response = await self.client.post(
                 f"{self.base_url}/chat/completions",
-                json={
-                    "model": self.model,
-                    "messages": chat_messages,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens
-                }
+                json=body
             )
             response.raise_for_status()
             data = response.json()
@@ -91,18 +94,7 @@ class CloudClient:
             logger.error(f"Cloud model {self.model} failed: {e}")
             raise Exception(f"Cloud model {self.model} failed: {e}")
 
-    async def health_check(self) -> bool:
-        """Check if OpenRouter is available."""
-        if not self.api_key:
-            return False
-        try:
-            response = await self.client.get(f"{self.base_url}/models")
-            return response.status_code == 200
-        except Exception as e:
-            logger.warning(f"OpenRouter health check failed: {e}")
-            return False
-
-    async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None, temperature: float = 0.7, max_tokens: int = 2000, messages: Optional[list] = None) -> AsyncGenerator[Dict[str, Any], None]:
+    async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None, temperature: float = 0.7, max_tokens: Optional[int] = None, messages: Optional[list] = None) -> AsyncGenerator[Dict[str, Any], None]:
         """Generate response as SSE stream."""
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY not configured")
@@ -119,16 +111,19 @@ class CloudClient:
                 chat_messages.append({"role": "system", "content": system_prompt})
             chat_messages.append({"role": "user", "content": prompt})
 
+        body = {
+            "model": self.model,
+            "messages": chat_messages,
+            "temperature": temperature,
+            "stream": True
+        }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+
         async with self.client.stream(
             "POST",
             f"{self.base_url}/chat/completions",
-            json={
-                "model": self.model,
-                "messages": chat_messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "stream": True
-            }
+            json=body
         ) as response:
             response.raise_for_status()
             async for line in response.aiter_lines():
@@ -137,6 +132,17 @@ class CloudClient:
                     if data.strip() == "[DONE]":
                         break
                     yield json.loads(data)
+
+    async def health_check(self) -> bool:
+        """Check if OpenRouter is available."""
+        if not self.api_key:
+            return False
+        try:
+            response = await self.client.get(f"{self.base_url}/models")
+            return response.status_code == 200
+        except Exception as e:
+            logger.warning(f"OpenRouter health check failed: {e}")
+            return False
 
     async def close(self):
         await self.client.aclose()

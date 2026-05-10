@@ -134,6 +134,7 @@ class RouteRequest(BaseModel):
     task_type: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = None
+    max_tokens: Optional[int] = None
 
 
 class RouteResponse(BaseModel):
@@ -156,7 +157,7 @@ class OpenAIRequest(BaseModel):
     messages: list[OpenAIMessage]
     stream: bool = False
     temperature: float = 0.7
-    max_tokens: int = 2000
+    max_tokens: Optional[int] = None
 
 @app.post("/v1/chat/completions")
 async def openai_chat_completions(request: OpenAIRequest):
@@ -191,7 +192,8 @@ async def _openai_nonstream(user_msg: str, original_lang_hint: str, full_message
             result = await local_engine.generate(
                 user_msg,
                 system_prompt=original_lang_hint if original_lang_hint else None,
-                messages=full_messages
+                messages=full_messages,
+                max_tokens=request.max_tokens
             )
             if result.confidence >= threshold:
                 response_text = result.text
@@ -204,7 +206,8 @@ async def _openai_nonstream(user_msg: str, original_lang_hint: str, full_message
             cloud_resp = await cloud_client.generate(
                 user_msg,
                 system_prompt=original_lang_hint if original_lang_hint else None,
-                messages=full_messages
+                messages=full_messages,
+                max_tokens=request.max_tokens
             )
             response_text = cloud_resp["content"]
             source = "local->cloud" if route_result.decision == RouteDecision.LOCAL else "hybrid"
@@ -212,7 +215,8 @@ async def _openai_nonstream(user_msg: str, original_lang_hint: str, full_message
         cloud_resp = await cloud_client.generate(
             user_msg,
             system_prompt=original_lang_hint if original_lang_hint else None,
-            messages=full_messages
+            messages=full_messages,
+            max_tokens=request.max_tokens
         )
         response_text = cloud_resp["content"]
         source = "cloud"
@@ -252,7 +256,8 @@ async def _openai_stream(user_msg: str, original_lang_hint: str, full_messages: 
                 async for chunk in local_engine.generate_stream(
                     user_msg,
                     system_prompt=original_lang_hint if original_lang_hint else None,
-                    messages=full_messages
+                    messages=full_messages,
+                    max_tokens=request.max_tokens
                 ):
                     yield f"data: {json.dumps(chunk)}\n\n"
                 yield "data: [DONE]\n\n"
@@ -263,7 +268,8 @@ async def _openai_stream(user_msg: str, original_lang_hint: str, full_messages: 
         async for chunk in cloud_client.generate_stream(
             user_msg,
             system_prompt=original_lang_hint if original_lang_hint else None,
-            messages=full_messages
+            messages=full_messages,
+            max_tokens=request.max_tokens
         ):
             yield f"data: {json.dumps(chunk)}\n\n"
         yield "data: [DONE]\n\n"
@@ -304,8 +310,11 @@ async def route_request(request: RouteRequest):
         session_messages = session_manager.get_context(request.session_id)
         should_check_cache = False
 
+    # Determine max_tokens: from request, or from config, or None
+    req_max_tokens = request.max_tokens or router_engine.config.get("max_tokens")
+
     # Local helper: call cloud with Russian prompt prepend if needed
-    async def _call_cloud(query_text: str, russian_override: bool = False, include_session: bool = True):
+    async def _call_cloud(query_text: str, russian_override: bool = False, include_session: bool = True, max_tokens: Optional[int] = None):
         if not cloud_client:
             raise HTTPException(status_code=503, detail="Cloud client not configured")
         needs_russian = russian_override or is_russian
@@ -316,7 +325,8 @@ async def route_request(request: RouteRequest):
         cloud_result = await cloud_client.generate(
             cloud_prompt,
             system_prompt=original_lang_hint if original_lang_hint else None,
-            messages=msgs
+            messages=msgs,
+            max_tokens=max_tokens
         )
         cloud_used = cloud_result.get("usage", {}).get("total_tokens", 0)
         if cloud_used > 0:
@@ -389,7 +399,8 @@ async def route_request(request: RouteRequest):
                     result = await local_engine.generate(
                         request.query,
                         system_prompt=original_lang_hint if original_lang_hint else None,
-                        messages=session_messages
+                        messages=session_messages,
+                        max_tokens=req_max_tokens
                     )
                     if result.confidence >= threshold:
                         response_text = result.text
@@ -416,7 +427,8 @@ async def route_request(request: RouteRequest):
                 try:
                     result = await local_engine.generate(
                         request.query,
-                        system_prompt="Provide a complete and accurate response."
+                        system_prompt="Provide a complete and accurate response.",
+                        max_tokens=req_max_tokens
                     )
                     if result.confidence >= threshold:
                         response_text = result.text
@@ -463,10 +475,10 @@ async def route_request(request: RouteRequest):
                         lang_hint = original_lang_hint or get_language_hint(sub_action)
                         sub_result = await local_engine.generate(
                             sub_action,
-                            system_prompt=lang_hint if lang_hint else None
+                            system_prompt=lang_hint if lang_hint else None,
+                            max_tokens=req_max_tokens
                         )
 
-                        # Check confidence - fallback to cloud if too low
                         if sub_result.confidence < threshold:
                             logger.warning(f"Local confidence {sub_result.confidence} < threshold {threshold}, falling back to cloud")
                             content, cloud_used = await _call_cloud(sub_action, include_session=False)
@@ -500,7 +512,8 @@ async def route_request(request: RouteRequest):
                             lang_hint = original_lang_hint or get_language_hint(sub_action)
                             sub_result = await local_engine.generate(
                                 sub_action,
-                                system_prompt=lang_hint if lang_hint else None
+                                system_prompt=lang_hint if lang_hint else None,
+                                max_tokens=req_max_tokens
                             )
                             if sub_result.confidence >= threshold:
                                 responses.append(sub_result.text)
@@ -609,3 +622,4 @@ async def shutdown_event():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
