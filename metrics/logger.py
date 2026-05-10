@@ -80,9 +80,10 @@ class MetricsLogger:
 
     def calculate_roi(self, maintenance_cost_usd: float = 0.01) -> float:
         """Calculate ROI: (cloud_cost_saved - maintenance_cost) / maintenance_cost * 100"""
-        cloud_cost_saved = (self.metrics.tokens_saved / 1000) * 0.01  # Assume $0.01 per 1k tokens
+        cloud_cost_per_1k = self.config.get("cloud_cost_per_1k_tokens", 0.001)
+        cloud_cost_saved = (self.metrics.tokens_saved / 1000) * cloud_cost_per_1k
         if maintenance_cost_usd == 0:
-            maintenance_cost_usd = 0.01  # Default minimal cost
+            maintenance_cost_usd = 0.01
         if cloud_cost_saved == 0:
             return 0.0
         return ((cloud_cost_saved - maintenance_cost_usd) / maintenance_cost_usd) * 100

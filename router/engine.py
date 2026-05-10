@@ -9,7 +9,7 @@ from loguru import logger
 class RoutingCriteria:
     def __init__(self, config: Dict[str, Any]):
         self.confidence_threshold = config.get("confidence_threshold", 0.7)
-        routing_config = config.get("routing", {})
+        routing_config = config
 
         # Domain-specific thresholds (v0.2)
         self.domain_thresholds = routing_config.get("domain_thresholds", {
@@ -206,23 +206,12 @@ class RouterEngine:
                 "index": subtask.index
             })
         
-        # If ALL subtasks route to cloud, consolidate into a single cloud call.
+# If ALL subtasks route to cloud, consolidate into a single cloud call.
         # Cascade with N cloud calls is more expensive than one direct cloud call.
         all_cloud = all(st["route"] == "cloud" for st in subtasks_routes)
         if all_cloud:
             logger.info(f"All {len(subtasks_routes)} subtasks route to cloud, consolidating to single cloud call")
             return {
-                "mode": "single",
-                "decision": RouteResponse(
-                    decision=RouteDecision.CLOUD,
-                    reason="All subtasks require cloud, consolidated",
-                    confidence=1.0
-                ),
-                "classification": classification,
-                "subtasks": []
-            }
-        
-        return {
                 "mode": "single",
                 "decision": RouteResponse(
                     decision=RouteDecision.CLOUD,

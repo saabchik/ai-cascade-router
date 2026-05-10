@@ -49,8 +49,9 @@ class SessionManager:
 
     def _trim_context(self, session: Session):
         total = sum(len(m.get("content", "")) // 4 for m in session.messages)
-        while total > self.max_context_tokens and len(session.messages) > 1:
-            removed = session.messages.pop(1) if session.messages[0].get("role") == "system" else session.messages.pop(0)
+        while total > self.max_context_tokens and len(session.messages) > 0:
+            idx = 1 if len(session.messages) > 1 and session.messages[0].get("role") == "system" else 0
+            removed = session.messages.pop(idx)
             total -= len(removed.get("content", "")) // 4
 
     def _cleanup_expired(self):
