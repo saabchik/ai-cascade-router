@@ -58,10 +58,16 @@ def estimate_confidence(text: str) -> float:
     elif len(text) > 400:
         score += 0.05
 
-    # Positive: structured (bullet or numbered lists)
+    # Positive: structured (bullet, numbered lists, or markdown headings)
     if any(l.strip().startswith('- ') for l in text.split('\n')):
         score += 0.05
     elif any(re.match(r'\d+\.\s', l.strip()) for l in text.split('\n')):
+        score += 0.05
+
+    # Positive: markdown headings (###, ##, #) or bold sections
+    if re.search(r'^#{1,3}\s', text, re.MULTILINE):
+        score += 0.10
+    elif '**' in text:
         score += 0.05
 
     return max(0.10, min(0.95, score))
