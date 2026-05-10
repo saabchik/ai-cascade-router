@@ -316,7 +316,7 @@ async def route_request(request: RouteRequest):
         cloud_result = await cloud_client.generate(
             cloud_prompt,
             system_prompt=original_lang_hint if original_lang_hint else None,
-            messages=session_messages
+            messages=msgs
         )
         cloud_used = cloud_result.get("usage", {}).get("total_tokens", 0)
         if cloud_used > 0:
@@ -389,7 +389,7 @@ async def route_request(request: RouteRequest):
                     result = await local_engine.generate(
                         request.query,
                         system_prompt=original_lang_hint if original_lang_hint else None,
-            messages=msgs
+                        messages=session_messages
                     )
                     if result.confidence >= threshold:
                         response_text = result.text
