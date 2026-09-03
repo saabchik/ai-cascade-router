@@ -2,8 +2,10 @@
 """
 AI Cascade Router - Smart LLM proxy that saves 40-70% tokens.
 """
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import os
@@ -29,6 +31,11 @@ app = FastAPI(
     version="0.7.0",
     description="Smart LLM proxy: saves up to 70% tokens by routing to local models"
 )
+
+# Static files and templates
+BASE_DIR = os.path.dirname(__file__)
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # ======================================
 # Configuration and Initialization
@@ -203,6 +210,8 @@ async def _openai_nonstream(user_msg: str, original_lang_hint: str, full_message
             logger.warning(f"OpenAI local failed: {e}, falling back to cloud")
 
         if not local_ok:
+            if not cloud_client:
+                raise HTTPException(status_code=503, detail="Cloud client not configured")
             cloud_resp = await cloud_client.generate(
                 user_msg,
                 system_prompt=original_lang_hint if original_lang_hint else None,
@@ -212,6 +221,8 @@ async def _openai_nonstream(user_msg: str, original_lang_hint: str, full_message
             response_text = cloud_resp["content"]
             source = "local->cloud" if route_result.decision == RouteDecision.LOCAL else "hybrid"
     else:
+        if not cloud_client:
+            raise HTTPException(status_code=503, detail="Cloud client not configured")
         cloud_resp = await cloud_client.generate(
             user_msg,
             system_prompt=original_lang_hint if original_lang_hint else None,
@@ -264,6 +275,11 @@ async def _openai_stream(user_msg: str, original_lang_hint: str, full_messages: 
                 return
         except Exception as e:
             logger.warning(f"Local stream failed: {e}, falling back to cloud")
+
+        if not cloud_client:
+            yield f"data: {json.dumps({'error': 'Cloud client not configured'})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
 
         async for chunk in cloud_client.generate_stream(
             user_msg,
@@ -610,6 +626,16 @@ async def route_request(request: RouteRequest):
 
 @app.get("/metrics")
 async def get_metrics():
+    return metrics_logger.export_metrics()
+
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
+@app.get("/api/dashboard")
+async def dashboard_metrics():
     return metrics_logger.export_metrics()
 
 

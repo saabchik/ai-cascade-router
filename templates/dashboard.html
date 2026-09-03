@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Cascade Router — Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Cascade Router</h1>
+            <div class="header-meta">
+                <span class="version">v0.7.0</span>
+                <span class="status" id="status">—</span>
+            </div>
+        </header>
+
+        <div class="cards" id="metrics-cards"
+             hx-get="/api/dashboard"
+             hx-trigger="every 5s"
+             hx-swap="innerHTML">
+
+            <div class="card">
+                <div class="card-label">Всего запросов</div>
+                <div class="card-value" id="total">—</div>
+            </div>
+
+            <div class="card card-local">
+                <div class="card-label">Локально</div>
+                <div class="card-value" id="local">—</div>
+                <div class="card-sub" id="local-pct"></div>
+            </div>
+
+            <div class="card card-cloud">
+                <div class="card-label">В облако</div>
+                <div class="card-value" id="cloud">—</div>
+                <div class="card-sub" id="cloud-pct"></div>
+            </div>
+
+            <div class="card card-hybrid">
+                <div class="card-label">Гибрид</div>
+                <div class="card-value" id="hybrid">—</div>
+            </div>
+
+            <div class="card card-saved">
+                <div class="card-label">Сэкономлено токенов</div>
+                <div class="card-value" id="saved">—</div>
+            </div>
+
+            <div class="card card-cost">
+                <div class="card-label">Стоимость облака</div>
+                <div class="card-value" id="cost">—</div>
+            </div>
+
+            <div class="card card-roi">
+                <div class="card-label">ROI</div>
+                <div class="card-value" id="roi">—</div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">Среднее время</div>
+                <div class="card-value" id="avg-time">—</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Распределение запросов</h2>
+            <div class="bar-container">
+                <div class="bar" id="bar-local"></div>
+                <div class="bar" id="bar-hybrid"></div>
+                <div class="bar" id="bar-cloud"></div>
+            </div>
+            <div class="bar-legend">
+                <span class="legend-local">● Локально</span>
+                <span class="legend-hybrid">● Гибрид</span>
+                <span class="legend-cloud">● Облако</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Делегирование</h2>
+            <div class="delegation-bar">
+                <div class="delegation-fill" id="delegation-fill"></div>
+            </div>
+            <div class="delegation-label">
+                <span id="delegation-pct">—</span> запросов уходит в облако
+            </div>
+        </div>
+
+        <footer>
+            <div class="links">
+                <a href="/docs">API Docs</a>
+                <a href="/health">Health Check</a>
+                <a href="/metrics">Metrics (JSON)</a>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+    <script>
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            if (event.detail.target.id === 'metrics-cards') {
+                updateDashboard(JSON.parse(event.detail.xhr.responseText));
+            }
+        });
+
+        htmx.trigger('#metrics-cards', 'every 5s');
+    </script>
+</body>
+</html>

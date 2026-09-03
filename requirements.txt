@@ -9,3 +9,6 @@ pytest
 pytest-asyncio
 sentence-transformers
 requests
+jinja2
+aiofiles
+numpy

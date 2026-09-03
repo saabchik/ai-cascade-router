@@ -1,6 +1,7 @@
 import httpx
 import os
 import json
+import re
 from typing import Optional, Dict, Any, AsyncGenerator
 from loguru import logger
 from utils.prompt_optimizer import optimize_prompt_for_cloud, estimate_tokens
@@ -53,7 +54,6 @@ class CloudClient:
             chat_messages = list(messages)
         else:
             chat_messages = []
-            import re
             lang_hint = "Please respond in the same language as the user's question." if re.search(r'[^\x00-\x7F]', prompt) else ""
             if lang_hint:
                 chat_messages.append({"role": "system", "content": lang_hint})
@@ -103,7 +103,6 @@ class CloudClient:
             chat_messages = list(messages)
         else:
             chat_messages = []
-            import re
             lang_hint = "Please respond in the same language as the user's question." if re.search(r'[^\x00-\x7F]', prompt) else ""
             if lang_hint:
                 chat_messages.append({"role": "system", "content": lang_hint})

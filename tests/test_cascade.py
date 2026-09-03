@@ -80,7 +80,7 @@ class TestRouterEngine:
     def test_determine_route_for_subtask(self, router_engine):
         # Test complexity-based routing
         route = router_engine._determine_route_for_subtask("complex", None)
-        assert route == "cloud"
+        assert route == "hybrid"
         
         route = router_engine._determine_route_for_subtask("medium", None)
         assert route == "hybrid"

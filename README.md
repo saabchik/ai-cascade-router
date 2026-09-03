@@ -493,6 +493,77 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 ---
 
+## Dashboard
+
+Открой http://localhost:8000 в браузере — увидите dashboard с метриками в реальном времени.
+
+- Карточки: запросы, токены, стоимость, ROI
+- Прогресс-бар распределения (local/hybrid/cloud)
+- Авто-обновление каждые 5 секунд (HTMX)
+- Тёмная тема
+
+---
+
+## Интеграция с IDE
+
+### Cursor
+
+1. Откройте **Cursor** → **Settings** → **Models**
+2. Нажмите **Add model**
+3. Вставьте конфиг:
+
+```json
+{
+  "models": [
+    {
+      "title": "Cascade Router",
+      "provider": "openai",
+      "apiBase": "http://localhost:8000/v1",
+      "model": "cascade-router"
+    }
+  ]
+}
+```
+
+Или скопируйте файл `integrations/cursor.json`.
+
+### Continue.dev
+
+1. Откройте `~/.continue/config.json`
+2. Добавьте в секцию `models`:
+
+```json
+{
+  "models": [
+    {
+      "title": "Cascade Router",
+      "provider": "openai",
+      "apiBase": "http://localhost:8000/v1",
+      "model": "cascade-router"
+    }
+  ]
+}
+```
+
+Или скопируйте файл `integrations/continue.json`.
+
+### Cline (VS Code)
+
+1. Откройте **Cline** → **Settings** → **API Provider**
+2. Выберите **OpenAI Compatible**
+3. Заполните:
+   - **API Base URL:** `http://localhost:8000/v1`
+   - **API Key:** `cascade-router` (любое значение)
+   - **Model:** `cascade-router`
+
+Подробнее: `integrations/cline.md`
+
+### VS Code (через Continue/Cline)
+
+Подключите через любой из вариантов выше — роутер будет работать во всех файлах проекта.
+
+---
+
 ## Структура проекта
 
 ```
@@ -502,19 +573,48 @@ ai-cascade-router/
 ├── README.md               # Этот файл
 ├── requirements.txt        # Зависимости
 ├── Dockerfile              # Docker конфигурация
+├── docker-compose.yml      # Docker Compose (роутер + LM Studio)
 ├── cli.py                  # Интерактивный REPL-клиент (чат без curl)
 ├── .gitignore             # Git ignore файлы
 ├── .env.example           # Шаблон .env
 ├── LICENSE                # MIT лицензия
 │
-├── session/                # Сессии (многотурные диалоги)
-│   └── manager.py          # SessionManager — хранение истории, TTL, обрезка
+├── templates/
+│   └── dashboard.html     # HTML шаблон dashboard
+├── static/
+│   ├── css/style.css      # Стили dashboard
+│   └── js/dashboard.js    # Клиентская логика (авто-обновление)
 │
-├── cli.py                  # Интерактивный REPL-клиент (чат без curl)
+├── integrations/          # Готовые конфиги для IDE
+│   ├── cursor.json
+│   ├── continue.json
+│   └── cline.md
+│
+├── router/                # Роутинг и классификация
+│   ├── engine.py          # RouterEngine (ML + правила)
+│   ├── semantic.py        # SemanticClassifier (sentence-transformers)
+│   ├── decomposer.py      # TaskDecomposer (каскадный режим)
+│   └── protocol.py        # RouteDecision, RouteRequest, RouteResponse
+│
+├── models/
+│   └── local_engine.py    # LM Studio клиент + self-assessment
+├── cloud/
+│   └── client.py          # OpenRouter API клиент
+├── cache/
+│   └── manager.py         # Семантический кэш с эмбеддингами
+├── metrics/
+│   └── logger.py          # Метрики и ROI
+├── session/
+│   └── manager.py         # Сессии (многотурные диалоги)
+├── utils/
+│   ├── model_cache.py     # Синглтон модели эмбеддингов
+│   └── prompt_optimizer.py # Оптимизация промптов
+│
 ├── test_local_model.py     # Диагностика LM Studio (быстрый тест)
-└── tests/                  # 21 тест
-    ├── test_cascade.py     # 14 тестов (ML + rule-based + cascade)
-    └── test_session.py     # 7 тестов (сессии, TTL, обрезка контекста)
+└── tests/                  # Тесты
+    ├── test_cascade.py     # Тесты ML + rule-based + cascade
+    ├── test_session.py     # Тесты сессий
+    └── test_dashboard.py   # Тесты dashboard
 ```
 
 ---
@@ -584,11 +684,12 @@ py -m pytest tests/ -v
 - [x] v0.5: Session support — многотурные диалоги с сохранением контекста (session_id + TTL + обрезка)
 - [x] v0.6: CLI REPL-клиент — интерактивный чат без curl
 - [x] v0.7: OpenAI-совместимый endpoint (/v1/chat/completions) — интеграция с VS Code, Cursor, Continue
-- [ ] v0.8: UI Dashboard (метрики, визуализация экономии)
-- [ ] v0.9: Адаптивный роутинг — роутер анализирует скорость и уверенность локальной модели, подстраивает пороги динамически
-- [ ] v0.10: In-agent mode — агент сам вызывает роутер на каждом шаге loop-а
-- [ ] v0.11: Ensemble refinement — local генерирует черновик, cloud улучшает (ансамбль для качества)
-- [ ] v1.0: Docker compose для продакшена
+- [x] v0.8: UI Dashboard (метрики, визуализация экономии) + HTMX auto-refresh
+- [x] v0.9: Docker Compose (роутер + LM Studio в одном контейнере)
+- [ ] v0.10: Интеграции — готовые конфиги для Cursor, Continue, Cline
+- [ ] v0.11: Адаптивный роутинг — подстройка порогов по скорости локальной модели
+- [ ] v0.12: Ensemble refinement — local генерирует черновик, cloud улучшает
+- [ ] v1.0: Продакшен — метрики в БД, алерты, rate limiting
 
 ---
 
